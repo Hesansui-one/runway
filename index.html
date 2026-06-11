@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>跑道 · 计划与实际</title>
+<style>
+:root{
+  --bg:#0E0F13; --surface:#16181F; --surface2:#1D2029;
+  --ink:#ECEAE4; --muted:#8A8D98; --line:#262A35;
+  --accent:#7C7FF2; --plan:#6B6E8A;
+  --ok:#58B891; --warn:#E0A458; --danger:#E2654E;
+  --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--ink);font-family:-apple-system,"PingFang SC","HarmonyOS Sans SC","Microsoft YaHei",sans-serif;min-height:100vh;padding-bottom:48px}
+.wrap{max-width:480px;margin:0 auto;padding:0 18px}
+header{padding:26px 0 6px;display:flex;align-items:baseline;justify-content:space-between}
+header h1{font-size:15px;font-weight:600;letter-spacing:.18em;color:var(--muted)}
+header .date{font-size:12px;color:var(--muted);font-family:var(--mono)}
+
+.hero{padding:18px 0 4px}
+.hero .label{font-size:12px;color:var(--muted);letter-spacing:.12em;margin-bottom:6px}
+.hero .big{font-family:var(--mono);font-size:50px;font-weight:600;line-height:1.05;letter-spacing:-.02em}
+.hero .big .yuan{font-size:22px;color:var(--muted);font-weight:400;margin-right:4px}
+.hero .sub{margin-top:10px;font-size:13px;color:var(--muted);line-height:1.8}
+.hero .sub b{color:var(--ink);font-family:var(--mono);font-weight:600}
+.delta{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;font-family:var(--mono);margin-left:2px}
+.delta.ahead{background:rgba(88,184,145,.14);color:var(--ok)}
+.delta.behind{background:rgba(226,101,78,.14);color:var(--danger)}
+
+section{margin-top:30px}
+section>h2{font-size:12px;color:var(--muted);letter-spacing:.16em;font-weight:600;margin-bottom:4px}
+section>h2 em{font-style:normal;color:var(--accent);margin-right:6px;font-family:var(--mono)}
+section .sec-sub{font-size:11px;color:var(--muted);margin-bottom:12px}
+
+.ptable{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.pt-row{display:flex;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line);gap:8px}
+.pt-row:last-child{border-bottom:none}
+.pt-row.cur{background:rgba(124,127,242,.07)}
+.pt-row.head{padding:8px 14px;background:var(--surface2)}
+.pt-row.head span{font-size:11px;color:var(--muted)}
+.pt-row .m{font-family:var(--mono);font-size:12px;color:var(--muted);flex:0 0 50px}
+.pt-row .ev{flex:1;font-size:11.5px;color:var(--muted);line-height:1.5}
+.pt-row .ev .rent{color:var(--warn)}
+.pt-row .ev .ben{color:var(--ok)}
+.pt-row .ev .one{color:var(--danger)}
+.pt-row .bal{font-family:var(--mono);font-size:14.5px;font-weight:600;text-align:right;flex:0 0 72px}
+.pt-row .bal.neg,.pt-row .bal.floor{color:var(--danger)}
+.pt-row .bal2{font-family:var(--mono);font-size:14.5px;font-weight:600;text-align:right;flex:0 0 72px;color:var(--accent)}
+.pt-row .bal2.empty{color:var(--line);font-weight:400}
+.pt-row.floorrow{justify-content:center;background:rgba(226,101,78,.08);border-top:1px solid var(--danger);border-bottom:1px solid var(--danger);padding:7px 14px}
+.pt-row.floorrow span{font-size:11.5px;color:var(--danger);font-weight:600;letter-spacing:.06em}
+
+.chart{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 6px 8px;margin-top:12px}
+.chart svg{display:block;width:100%;height:auto}
+.legend{display:flex;gap:13px;font-size:11px;color:var(--muted);padding:8px 8px 4px;flex-wrap:wrap}
+.legend i{display:inline-block;width:14px;height:0;border-top:2px solid;margin-right:5px;vertical-align:3px}
+.legend i.dash{border-top-style:dashed}
+
+.checks{display:grid;gap:8px}
+.check{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.check .t{font-size:14px}
+.check .t small{display:block;font-size:11px;color:var(--muted);margin-top:2px;font-family:var(--mono)}
+.check .done{font-size:13px;color:var(--ok);font-weight:600}
+.check button{padding:8px 14px;border-radius:9px;border:1px solid var(--line);background:var(--surface2);color:var(--ink);font-size:13px;cursor:pointer}
+
+.addbox{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.seg button{padding:12px 0;border-radius:10px;border:1px solid var(--line);background:var(--surface2);color:var(--muted);font-size:15px;font-weight:600;cursor:pointer}
+.seg button.on-out{background:rgba(226,101,78,.14);border-color:var(--danger);color:var(--danger)}
+.seg button.on-in{background:rgba(88,184,145,.14);border-color:var(--ok);color:var(--ok)}
+.field{display:flex;gap:8px}
+.field input{background:var(--surface2);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:12px;font-size:16px;outline:none;min-width:0}
+.field input:focus{border-color:var(--accent)}
+#amt{flex:0 0 38%;font-family:var(--mono)}
+#note{flex:1}
+.addbox .go{margin-top:12px;width:100%;padding:13px 0;border:none;border-radius:10px;background:var(--accent);color:#fff;font-size:15px;font-weight:600;cursor:pointer}
+.addbox .go:active{opacity:.85}
+
+.list{margin-top:10px}
+.entry{display:flex;align-items:center;gap:10px;padding:11px 4px;border-bottom:1px solid var(--line)}
+.entry:last-child{border-bottom:none}
+.entry .d{font-family:var(--mono);font-size:11px;color:var(--muted);flex:0 0 44px}
+.entry .n{flex:1;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.entry .a{font-family:var(--mono);font-size:14px;font-weight:600}
+.entry .a.in{color:var(--ok)} .entry .a.out{color:var(--danger)}
+.entry .x{background:none;border:none;color:var(--muted);font-size:16px;padding:4px 6px;cursor:pointer}
+.empty{color:var(--muted);font-size:13px;padding:14px 4px}
+
+details.settings{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:0 14px}
+details.settings summary{list-style:none;cursor:pointer;padding:14px 0;font-size:13px;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+details.settings summary::-webkit-details-marker{display:none}
+details.settings summary:after{content:"▾";transition:.2s}
+details.settings[open] summary:after{transform:rotate(180deg)}
+.set-grid{padding:2px 0 16px;display:grid;gap:12px}
+.set-item label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+.set-item input,.set-item textarea{width:100%;background:var(--surface2);border:1px solid var(--line);border-radius:10px;color:var(--ink);padding:11px 12px;font-size:14px;font-family:var(--mono);outline:none}
+.set-item textarea{min-height:74px;resize:vertical;line-height:1.6}
+.set-item input:focus,.set-item textarea:focus{border-color:var(--accent)}
+.btnrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+.btnrow button{padding:11px 0;border-radius:10px;border:1px solid var(--line);background:var(--surface2);color:var(--ink);font-size:13px;cursor:pointer}
+.note{font-size:12px;color:var(--muted);line-height:1.7;margin-top:14px}
+.toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(20px);background:var(--surface2);border:1px solid var(--line);color:var(--ink);padding:10px 18px;border-radius:99px;font-size:13px;opacity:0;pointer-events:none;transition:.25s;z-index:9}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header><h1>兑现未来</h1><div class="date" id="today"></div></header>
+
+<div class="hero">
+  <div class="label">总余额</div>
+  <div class="big"><span class="yuan">¥</span><span id="totalBal">—</span></div>
+  <div class="sub">
+    实际可支出 <b id="spendable">—</b> · 锁定备用金 <b id="lockShow">—</b><br>
+    对比计划线 <span class="delta" id="deltaBadge">—</span>
+    <span id="planHint" style="font-size:12px;margin-left:6px"></span>
+  </div>
+</div>
+
+<!-- ① 计划参考线 -->
+<section>
+  <h2><em>①</em>计划参考线（固定模型 · 永不变动）</h2>
+  <div class="sec-sub" id="planRange">—</div>
+  <div class="ptable" id="planTable"></div>
+  <div class="chart">
+    <svg id="planChart" viewBox="0 0 440 250" xmlns="http://www.w3.org/2000/svg" aria-label="计划线折线图,每月一个点并标注金额"></svg>
+    <div class="legend">
+      <span><i class="dash" style="border-color:var(--plan)"></i>计划总余额</span>
+      <span><i style="border-color:var(--warn)"></i>交租月</span>
+      <span><i style="border-color:var(--danger)"></i>一次性支出</span>
+      <span><i class="dash" style="border-color:var(--danger)"></i>最终底线</span>
+    </div>
+  </div>
+</section>
+
+<!-- ② 实际 -->
+<section>
+  <h2><em>②</em>实际（随记账变化）</h2>
+  <div class="sec-sub">每行：月份 · 计划参考 · 实际总余额（未来月份留空）</div>
+  <div class="ptable" id="actTable"></div>
+  <div class="chart">
+    <svg id="actChart" viewBox="0 0 440 250" xmlns="http://www.w3.org/2000/svg" aria-label="实际余额与固定模型参考线对比折线图"></svg>
+    <div class="legend">
+      <span><i class="dash" style="border-color:var(--plan)"></i>固定模型参考线（不动）</span>
+      <span><i style="border-color:var(--accent)"></i>实际总余额</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>本月清单</h2>
+  <div class="checks" id="checks"></div>
+</section>
+
+<section>
+  <h2>记一笔（只影响实际）</h2>
+  <div class="addbox">
+    <div class="seg">
+      <button id="segOut" class="on-out" type="button">支出 −</button>
+      <button id="segIn" type="button">进账 +</button>
+    </div>
+    <div class="field">
+      <input id="amt" type="number" inputmode="decimal" placeholder="金额">
+      <input id="note" type="text" placeholder="备注">
+    </div>
+    <button class="go" id="addBtn" type="button">记入并更新余额</button>
+  </div>
+  <div class="list" id="entryList"></div>
+</section>
+
+<section>
+  <details class="settings">
+    <summary>模型参数 · 备份</summary>
+    <div class="set-grid">
+      <div class="set-item"><label>实际当前总余额</label><input id="sBal" type="number" inputmode="decimal"></div>
+      <div class="set-item"><label>锁定备用金（顶部小字展示用）</label><input id="sLock" type="number" inputmode="decimal"></div>
+      <div class="set-item"><label>最终底线（图中红色虚线）</label><input id="sFloor" type="number" inputmode="decimal"></div>
+      <div class="set-item"><label>计划起点月份</label><input id="sAnchorYM" type="month"></div>
+      <div class="set-item"><label>计划起点总余额</label><input id="sAnchorBal" type="number" inputmode="decimal"></div>
+      <div class="set-item"><label>每月固定支出（不含房租）</label><input id="sFixed" type="number" inputmode="decimal"></div>
+      <div class="set-item"><label>失业金 / 月</label><input id="sBenefit" type="number" inputmode="decimal"></div>
+      <div class="set-item"><label>失业金最后月份（计划线终点）</label><input id="sBenefitEnd" type="month"></div>
+      <div class="set-item"><label>季度房租</label><input id="sRent" type="number" inputmode="decimal"></div>
+      <div class="set-item"><label>下次交租月份</label><input id="sRentNext" type="month"></div>
+      <div class="set-item"><label>计划内一次性项（每行：月份,金额,备注；支出用负数）</label><textarea id="sOneOffs"></textarea></div>
+      <div class="btnrow">
+        <button id="saveSet" type="button">保存参数</button>
+        <button id="exportBtn" type="button">导出备份</button>
+        <button id="importBtn" type="button">导入备份</button>
+        <button id="resetBtn" type="button">恢复默认</button>
+      </div>
+      <input id="importFile" type="file" accept=".json" style="display:none">
+    </div>
+  </details>
+  <p class="note">① 计划线＝固定模型：每月 −固定支出 +失业金（至最后月份），交租月 −季度房租，加上你设定的一次性项（设备、备用金动用），从起点画到失业金停发月，永不受记账影响。② 实际＝只认你记的账，逐月长出实线，和参考线的差距就是你跑赢/跑输计划的金额。换手机前先导出备份。</p>
+</section>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+var LSKEY="runway_v4";
+var DEFAULTS={
+  balance:45191, lock:25000, floor:10000, floorYM:"2027-03",
+  anchorYM:"2026-06", anchorBal:45191,
+  fixed:2200, benefit:1980, benefitEnd:"2027-05",
+  rent:4500, rentNext:"2026-08",
+  oneOffs:"2026-06,-4000,设备采购\n2026-06,-1600,本月预估消费\n2026-08,-8000,泰国旅行\n2027-02,-4000,春节家人红包\n2027-03,-3000,车辆保险",
+  entries:[], snap:{}
+};
+var S=load();
+function load(){
+  try{var raw=localStorage.getItem(LSKEY);
+    if(raw){var o=JSON.parse(raw);for(var k in DEFAULTS){if(!(k in o))o[k]=DEFAULTS[k];}return o;}
+  }catch(e){}
+  return JSON.parse(JSON.stringify(DEFAULTS));
+}
+function save(){try{localStorage.setItem(LSKEY,JSON.stringify(S));}catch(e){}}
+function fmt(n){return Math.round(n).toLocaleString("zh-CN");}
+function fmtK(n){return (n/1000).toFixed(1).replace(/\.0$/,"")+"k";}
+function ymAdd(ym,k){var p=ym.split("-"),y=+p[0],m=+p[1]-1+k;return (y+Math.floor(m/12))+"-"+String(m%12+1).padStart(2,"0");}
+function ymDiff(a,b){var p=a.split("-"),q=b.split("-");return (+q[0]-(+p[0]))*12+(+q[1]-(+p[1]));}
+function ymLabel(ym){var p=ym.split("-");return p[0].slice(2)+"/"+p[1];}
+function todayStr(){var d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+function curYM(){return todayStr().slice(0,7);}
+function isRentMonth(m){var d=ymDiff(S.rentNext,m);return d>=0&&d%3===0;}
+function oneOffs(){
+  var out={};
+  (S.oneOffs||"").split("\n").forEach(function(L){
+    var p=L.split(",");if(p.length<2)return;
+    var ym=p[0].trim(),a=parseFloat(p[1]);if(!ym||isNaN(a))return;
+    if(!out[ym])out[ym]=[];out[ym].push({a:a,n:(p[2]||"").trim()});
+  });
+  return out;
+}
+
+/* ① 计划线: anchor → benefitEnd, 总余额口径 */
+function planSeries(){
+  var oo=oneOffs();
+  var n=Math.max(1,ymDiff(S.anchorYM,S.benefitEnd));
+  var pts=[];
+  for(var i=0;i<=n;i++){
+    var ym=ymAdd(S.anchorYM,i);
+    var v=(i===0)?S.anchorBal:pts[i-1].v-S.fixed;
+    var ben=ym<=S.benefitEnd;if(ben)v+=S.benefit;
+    var r=(i>0)&&isRentMonth(ym);if(r)v-=S.rent;
+    var ones=oo[ym]||[];ones.forEach(function(o){v+=o.a;});
+    pts.push({ym:ym,v:v,rent:r,ben:ben,ones:ones,first:i===0});
+  }
+  return pts;
+}
+function planAt(ym){
+  var pts=planSeries(),d=ymDiff(S.anchorYM,ym);
+  if(d<0||d>=pts.length)return null;
+  return pts[d].v;
+}
+
+function render(){
+  document.getElementById("today").textContent=todayStr();
+  S.snap[curYM()]=S.balance;save();
+
+  document.getElementById("totalBal").textContent=fmt(S.balance);
+  document.getElementById("spendable").textContent="¥"+fmt(S.balance-S.lock);
+  document.getElementById("lockShow").textContent="¥"+fmt(S.lock);
+
+  var pv=planAt(curYM());
+  var badge=document.getElementById("deltaBadge");
+  if(pv===null){badge.textContent="—";badge.className="delta";}
+  else{
+    var d=S.balance-pv;
+    badge.textContent=(d>=0?"超前 +":"落后 −")+fmt(Math.abs(d));
+    badge.className="delta "+(d>=0?"ahead":"behind");
+    document.getElementById("planHint").textContent="本月计划应剩 ¥"+fmt(pv);
+  }
+  document.getElementById("planRange").textContent=
+    S.anchorYM.replace("-","年")+"月 → "+S.benefitEnd.replace("-","年")+"月（失业金停发）· 总余额口径";
+
+  renderPlanTable();drawPlanChart();
+  renderActTable();drawActChart();
+  renderChecks();renderEntries();fillSettings();
+}
+
+function evHtml(p){
+  var ev=[];
+  if(p.ben)ev.push('<span class="ben">+失业金'+fmt(S.benefit)+'</span>');
+  if(!p.first)ev.push('<span>−固定'+fmt(S.fixed)+'</span>');
+  if(p.rent)ev.push('<span class="rent">−房租'+fmt(S.rent)+'</span>');
+  p.ones.forEach(function(o){ev.push('<span class="one">'+(o.a>0?"+":"−")+fmt(Math.abs(o.a))+o.n+'</span>');});
+  return ev.join(" ")||"—";
+}
+
+function renderPlanTable(){
+  var pts=planSeries(),html="";
+  html+='<div class="pt-row head"><span class="m">月份</span><span class="ev">事件</span><span class="bal" style="font-weight:400">计划总余额</span></div>';
+  pts.forEach(function(p){
+    html+='<div class="pt-row'+(p.ym===curYM()?" cur":"")+'">'+
+      '<span class="m">'+ymLabel(p.ym)+'</span>'+
+      '<span class="ev">'+evHtml(p)+'</span>'+
+      '<span class="bal'+(p.v<S.floor?" floor":"")+'">¥'+fmt(p.v)+'</span></div>';
+    if(p.ym===S.floorYM)html+='<div class="pt-row floorrow"><span>⚠ 底线 10K（1万元备用金）</span></div>';
+  });
+  document.getElementById("planTable").innerHTML=html;
+}
+
+function chartFrame(vsAll){
+  var W=440,H=250,L=44,R=14,T=28,B=36;
+  var mx=Math.ceil(Math.max.apply(null,vsAll.concat([S.floor+2000]))/5000)*5000;
+  var mn=Math.floor(Math.min.apply(null,vsAll.concat([S.floor-2000,0]))/5000)*5000;
+  return {W:W,H:H,L:L,R:R,T:T,B:B,mx:mx,mn:mn,
+    Y:function(v){return T+(mx-v)*(H-T-B)/(mx-mn||1);}};
+}
+function gridHtml(f){
+  var html="",step=10000;
+  for(var g=f.mn;g<=f.mx;g+=step){
+    html+='<line x1="'+f.L+'" y1="'+f.Y(g)+'" x2="'+(f.W-f.R)+'" y2="'+f.Y(g)+'" stroke="var(--line)" stroke-width="1"/>';
+    html+='<text x="'+(f.L-5)+'" y="'+(f.Y(g)+3)+'" font-size="9" fill="var(--muted)" text-anchor="end" font-family="var(--mono)">'+(g/1000)+'k</text>';
+  }
+  // floor line
+  html+='<line x1="'+f.L+'" y1="'+f.Y(S.floor)+'" x2="'+(f.W-f.R)+'" y2="'+f.Y(S.floor)+'" stroke="var(--danger)" stroke-width="1.2" stroke-dasharray="5 4"/>';
+  html+='<text x="'+(f.W-f.R)+'" y="'+(f.Y(S.floor)-5)+'" font-size="9" fill="var(--danger)" text-anchor="end">底线 '+fmtK(S.floor)+'（最后1万备用金）</text>';
+  return html;
+}
+function floorVLine(f,X,pts){
+  var i=pts.findIndex(function(p){return p.ym===S.floorYM;});
+  if(i<0)return "";
+  return '<line x1="'+X(i)+'" y1="'+f.T+'" x2="'+X(i)+'" y2="'+(f.H-f.B)+'" stroke="var(--danger)" stroke-width="1.3" stroke-dasharray="4 4"/>'+
+    '<text x="'+X(i)+'" y="'+(f.T-7)+'" font-size="9" fill="var(--danger)" text-anchor="middle">底线10K · 27/03</text>';
+}
+function ptLabel(x,y,v,i,color){
+  var up=(i%2===0);
+  return '<text x="'+x+'" y="'+(up?y-9:y+15)+'" font-size="8.5" fill="'+color+'" text-anchor="middle" font-family="var(--mono)">'+fmtK(v)+'</text>';
+}
+
+function drawPlanChart(){
+  var pts=planSeries(),f=chartFrame(pts.map(function(p){return p.v;}));
+  var n=pts.length-1;
+  var X=function(i){return f.L+i*(f.W-f.L-f.R)/(n||1);};
+  var html=gridHtml(f)+floorVLine(f,X,pts);
+  html+='<polyline points="'+pts.map(function(p,i){return X(i)+","+f.Y(p.v);}).join(" ")+'" fill="none" stroke="var(--plan)" stroke-width="2" stroke-dasharray="6 4"/>';
+  pts.forEach(function(p,i){
+    var col=p.ones.length?"var(--danger)":(p.rent?"var(--warn)":"var(--plan)");
+    html+='<circle cx="'+X(i)+'" cy="'+f.Y(p.v)+'" r="3.4" fill="'+col+'"/>';
+    html+=ptLabel(X(i),f.Y(p.v),p.v,i,"var(--muted)");
+    if(i%2===0)html+='<text x="'+X(i)+'" y="'+(f.H-12)+'" font-size="8.5" fill="var(--muted)" text-anchor="middle" font-family="var(--mono)">'+ymLabel(p.ym)+'</text>';
+  });
+  document.getElementById("planChart").innerHTML=html;
+}
+
+function renderActTable(){
+  var pts=planSeries(),html="";
+  html+='<div class="pt-row head"><span class="m">月份</span><span class="bal" style="font-weight:400;flex:1;text-align:right">计划参考</span><span class="bal2" style="font-weight:400">实际总余额</span></div>';
+  pts.forEach(function(p){
+    var av=S.snap[p.ym];
+    html+='<div class="pt-row'+(p.ym===curYM()?" cur":"")+'">'+
+      '<span class="m">'+ymLabel(p.ym)+'</span>'+
+      '<span class="bal" style="flex:1;text-align:right;color:var(--muted);font-weight:400">¥'+fmt(p.v)+'</span>'+
+      (av!==undefined?'<span class="bal2">¥'+fmt(av)+'</span>':'<span class="bal2 empty">—</span>')+
+      '</div>';
+    if(p.ym===S.floorYM)html+='<div class="pt-row floorrow"><span>⚠ 底线 10K（1万元备用金）</span></div>';
+  });
+  document.getElementById("actTable").innerHTML=html;
+}
+
+function drawActChart(){
+  var pts=planSeries();
+  var act=[];
+  Object.keys(S.snap).sort().forEach(function(ym){
+    var i=ymDiff(S.anchorYM,ym);
+    if(i>=0&&i<pts.length)act.push({i:i,v:S.snap[ym]});
+  });
+  var f=chartFrame(pts.map(function(p){return p.v;}).concat(act.map(function(a){return a.v;})));
+  var n=pts.length-1;
+  var X=function(i){return f.L+i*(f.W-f.L-f.R)/(n||1);};
+  var html=gridHtml(f)+floorVLine(f,X,pts);
+  // 参考线(固定模型,永不动)
+  html+='<polyline points="'+pts.map(function(p,i){return X(i)+","+f.Y(p.v);}).join(" ")+'" fill="none" stroke="var(--plan)" stroke-width="1.8" stroke-dasharray="6 4" opacity=".85"/>';
+  pts.forEach(function(p,i){
+    html+='<circle cx="'+X(i)+'" cy="'+f.Y(p.v)+'" r="2.4" fill="var(--plan)"/>';
+    if(i%2===0)html+='<text x="'+X(i)+'" y="'+(f.H-12)+'" font-size="8.5" fill="var(--muted)" text-anchor="middle" font-family="var(--mono)">'+ymLabel(p.ym)+'</text>';
+  });
+  // 实际线
+  if(act.length){
+    html+='<polyline points="'+act.map(function(a){return X(a.i)+","+f.Y(a.v);}).join(" ")+'" fill="none" stroke="var(--accent)" stroke-width="2.4"/>';
+    act.forEach(function(a,k){
+      html+='<circle cx="'+X(a.i)+'" cy="'+f.Y(a.v)+'" r="3.6" fill="var(--accent)"/>';
+      html+=ptLabel(X(a.i),f.Y(a.v),a.v,k+1,"var(--accent)");
+    });
+  }
+  document.getElementById("actChart").innerHTML=html;
+}
+
+function hasEntry(kw){
+  var cm=curYM();
+  return S.entries.some(function(e){return e.d.slice(0,7)===cm&&(e.n||"").indexOf(kw)>=0;});
+}
+function renderChecks(){
+  var box=document.getElementById("checks"),html="",cm=curYM();
+  if(cm<=S.benefitEnd){
+    html+='<div class="check"><div class="t">本月失业金<small>+¥'+fmt(S.benefit)+'</small></div>'+
+      (hasEntry("失业金")?'<span class="done">✓ 已到账</span>':'<button data-q="ben" type="button">到账了,记入</button>')+'</div>';
+  }
+  if(isRentMonth(cm)){
+    html+='<div class="check"><div class="t">本月需交季度房租<small>−¥'+fmt(S.rent)+'</small></div>'+
+      (hasEntry("房租")?'<span class="done">✓ 已交</span>':'<button data-q="rent" type="button">交了,记入</button>')+'</div>';
+  }
+  var oo=oneOffs()[cm]||[];
+  oo.forEach(function(o,k){
+    if(o.a<0){
+      html+='<div class="check"><div class="t">计划内：'+o.n+'<small>−¥'+fmt(Math.abs(o.a))+'</small></div>'+
+        (hasEntry(o.n)?'<span class="done">✓ 已支出</span>':'<button data-q="one" data-a="'+Math.abs(o.a)+'" data-n="'+o.n+'" type="button">花了,记入</button>')+'</div>';
+    }
+  });
+  var mo=0,mi=0;
+  S.entries.forEach(function(e){if(e.d.slice(0,7)===cm){if(e.t==="out")mo+=e.a;else mi+=e.a;}});
+  html+='<div class="check"><div class="t">本月已记支出 / 进账</div><div style="font-family:var(--mono);font-size:14px"><span style="color:var(--danger)">−'+fmt(mo)+'</span> · <span style="color:var(--ok)">+'+fmt(mi)+'</span></div></div>';
+  box.innerHTML=html;
+  box.querySelectorAll("button[data-q]").forEach(function(b){
+    b.onclick=function(){
+      if(b.dataset.q==="ben")addEntry("in",S.benefit,"失业金");
+      else if(b.dataset.q==="rent")addEntry("out",S.rent,"房租");
+      else addEntry("out",parseFloat(b.dataset.a),b.dataset.n);
+    };
+  });
+}
+
+function addEntry(t,a,n){
+  S.entries.push({d:todayStr(),t:t,a:a,n:n});
+  S.balance+=(t==="in"?a:-a);
+  save();render();toast(t==="in"?"进账已记入":"支出已记入");
+}
+function renderEntries(){
+  var box=document.getElementById("entryList");
+  if(!S.entries.length){box.innerHTML='<div class="empty">还没有记录。失业金、房租、设备、任何大进出 —— 记这里,它们只改变实际线,参考线永远不动。</div>';return;}
+  var html="";
+  S.entries.slice().reverse().forEach(function(e,ri){
+    var i=S.entries.length-1-ri;
+    html+='<div class="entry"><span class="d">'+e.d.slice(5)+'</span><span class="n">'+(e.n||"（未注明）")+
+      '</span><span class="a '+e.t+'">'+(e.t==="in"?"+":"−")+fmt(e.a)+'</span>'+
+      '<button class="x" data-i="'+i+'" aria-label="删除">×</button></div>';
+  });
+  box.innerHTML=html;
+  box.querySelectorAll(".x").forEach(function(b){
+    b.onclick=function(){
+      var i=+b.dataset.i,e=S.entries[i];
+      S.balance+=(e.t==="in"?-e.a:e.a);
+      S.entries.splice(i,1);save();render();toast("已删除并回滚余额");
+    };
+  });
+}
+function fillSettings(){
+  document.getElementById("sBal").value=S.balance;
+  document.getElementById("sLock").value=S.lock;
+  document.getElementById("sFloor").value=S.floor;
+  document.getElementById("sAnchorYM").value=S.anchorYM;
+  document.getElementById("sAnchorBal").value=S.anchorBal;
+  document.getElementById("sFixed").value=S.fixed;
+  document.getElementById("sBenefit").value=S.benefit;
+  document.getElementById("sBenefitEnd").value=S.benefitEnd;
+  document.getElementById("sRent").value=S.rent;
+  document.getElementById("sRentNext").value=S.rentNext;
+  document.getElementById("sOneOffs").value=S.oneOffs;
+}
+function toast(m){var t=document.getElementById("toast");t.textContent=m;t.classList.add("show");setTimeout(function(){t.classList.remove("show");},1800);}
+
+var mode="out";
+document.getElementById("segOut").onclick=function(){mode="out";this.className="on-out";document.getElementById("segIn").className="";};
+document.getElementById("segIn").onclick=function(){mode="in";this.className="on-in";document.getElementById("segOut").className="";};
+document.getElementById("addBtn").onclick=function(){
+  var a=parseFloat(document.getElementById("amt").value);
+  if(!a||a<=0){toast("先填金额");return;}
+  addEntry(mode,a,document.getElementById("note").value.trim());
+  document.getElementById("amt").value="";document.getElementById("note").value="";
+};
+document.getElementById("saveSet").onclick=function(){
+  S.balance=parseFloat(document.getElementById("sBal").value)||0;
+  S.lock=parseFloat(document.getElementById("sLock").value)||0;
+  S.floor=parseFloat(document.getElementById("sFloor").value)||0;
+  S.anchorYM=document.getElementById("sAnchorYM").value||S.anchorYM;
+  S.anchorBal=parseFloat(document.getElementById("sAnchorBal").value)||0;
+  S.fixed=parseFloat(document.getElementById("sFixed").value)||0;
+  S.benefit=parseFloat(document.getElementById("sBenefit").value)||0;
+  S.benefitEnd=document.getElementById("sBenefitEnd").value||S.benefitEnd;
+  S.rent=parseFloat(document.getElementById("sRent").value)||0;
+  S.rentNext=document.getElementById("sRentNext").value||S.rentNext;
+  S.oneOffs=document.getElementById("sOneOffs").value;
+  save();render();toast("参数已保存");
+};
+document.getElementById("exportBtn").onclick=function(){
+  var blob=new Blob([JSON.stringify(S,null,2)],{type:"application/json"});
+  var a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);a.download="runway-backup-"+todayStr()+".json";a.click();
+};
+document.getElementById("importBtn").onclick=function(){document.getElementById("importFile").click();};
+document.getElementById("importFile").onchange=function(ev){
+  var f=ev.target.files[0];if(!f)return;
+  var r=new FileReader();
+  r.onload=function(){try{S=JSON.parse(r.result);save();render();toast("备份已导入");}catch(e){toast("文件无法解析");}};
+  r.readAsText(f);
+};
+document.getElementById("resetBtn").onclick=function(){
+  if(confirm("恢复默认参数并清空记录？")){S=JSON.parse(JSON.stringify(DEFAULTS));save();render();}
+};
+render();
+})();
+</script>
+</body>
+</html>
