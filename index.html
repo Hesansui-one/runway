@@ -152,6 +152,34 @@ details.settings[open] summary:after{transform:rotate(180deg)}
 </section>
 
 <section>
+  <h2><em>③</em>动态推演（从最新真实余额向后铺满）</h2>
+  <div class="sec-sub">以②中最近一个真实月份为起点，套用固定模型推算之后每月所剩，铺满到 <span id="b3end">—</span></div>
+  <div class="addbox" style="text-align:center;padding:16px 16px 10px">
+    <div style="font-size:12px;color:var(--muted);letter-spacing:.12em;margin-bottom:6px">距离动用最后备用金，还能撑</div>
+    <div style="font-family:var(--mono);font-size:42px;font-weight:600;line-height:1" id="b3months">—</div>
+    <div style="font-size:13px;color:var(--muted);margin-top:6px">起点 <b id="b3start" style="color:var(--accent);font-family:var(--mono)">—</b> · 预计见底 <b id="b3date" style="color:var(--ink);font-family:var(--mono)">—</b></div>
+    <div style="height:8px;background:var(--surface2);border-radius:99px;margin:14px 0 6px;overflow:hidden">
+      <div id="b3bar" style="height:100%;background:var(--accent);border-radius:99px;width:0%"></div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-family:var(--mono)">
+      <span>现在 ¥<span id="b3now">—</span></span><span style="color:var(--danger)">底线 ¥<span id="b3floor2">—</span></span>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:12px;line-height:1.6;border-top:1px solid var(--line);padding-top:10px">
+      参考：失业金停发前月净流约 <b style="font-family:var(--mono);color:var(--ink)" id="b3net1">—</b>/月（房租按季摊）；<b style="color:var(--warn)">2027年6月失业金停发后</b>跳升至约 <b style="font-family:var(--mono);color:var(--danger)" id="b3net2">—</b>/月
+    </div>
+  </div>
+  <div class="sec-sub" style="margin-top:14px">每行：月份 · 事件 · 动态剩余（起点为真实值，其后为推算）</div>
+  <div class="ptable" id="dynTable"></div>
+  <div class="chart">
+    <svg id="dynChart" viewBox="0 0 440 250" xmlns="http://www.w3.org/2000/svg" aria-label="动态推演折线,完整铺满,并叠加计划线对照"></svg>
+    <div class="legend">
+      <span><i class="dash" style="border-color:var(--plan)"></i>计划线（对照）</span>
+      <span><i style="border-color:var(--accent)"></i>动态推演（实际起点）</span>
+    </div>
+  </div>
+</section>
+
+<section>
   <h2>本月清单</h2>
   <div class="checks" id="checks"></div>
 </section>
@@ -207,10 +235,10 @@ details.settings[open] summary:after{transform:rotate(180deg)}
 "use strict";
 var LSKEY="runway_v4";
 var DEFAULTS={
-  balance:0, lock:0, floor:0, floorYM:"2027-03",
+  balance:0, lock:0, floor:10000, floorYM:"2027-03",
   anchorYM:"2026-06", anchorBal:0,
-  fixed:0, benefit:0, benefitEnd:"2027-05",
-  rent:0, rentNext:"2026-08",
+  fixed:2200, benefit:1980, benefitEnd:"2027-05",
+  rent:4500, rentNext:"2026-08",
   oneOffs:"",
   entries:[], snap:{}
 };
@@ -255,6 +283,48 @@ function planSeries(){
   }
   return pts;
 }
+function latestRealYM(){
+  // ②中最近一个有真实快照的月份
+  var keys=Object.keys(S.snap).sort();
+  return keys.length? keys[keys.length-1] : curYM();
+}
+function dynSeries(){
+  // 从最新真实月(起点=真实余额)铺满到 benefitEnd
+  var oo=oneOffs();
+  var startYM=latestRealYM();
+  var startBal=(S.snap[startYM]!==undefined)?S.snap[startYM]:S.balance;
+  var n=Math.max(0,ymDiff(startYM,S.benefitEnd));
+  var pts=[];
+  for(var i=0;i<=n;i++){
+    var ym=ymAdd(startYM,i);
+    var v,ev=[];
+    if(i===0){v=startBal;ev.push("真实起点");}
+    else{
+      v=pts[i-1].v-S.fixed;ev.push("−固定"+fmt(S.fixed));
+      if(ym<=S.benefitEnd){v+=S.benefit;ev.unshift("+失业金"+fmt(S.benefit));}
+      if(isRentMonth(ym)){v-=S.rent;ev.push("−房租"+fmt(S.rent));}
+      (oo[ym]||[]).forEach(function(o){v+=o.a;ev.push((o.a>0?"+":"−")+fmt(Math.abs(o.a))+o.n);});
+    }
+    pts.push({ym:ym,v:v,ev:ev.join(" "),first:i===0});
+  }
+  return {pts:pts,startYM:startYM,startBal:startBal};
+}
+function dynToFloor(){
+  // 从起点继续推演直到跌破底线(可超过 benefitEnd)
+  var oo=oneOffs();
+  var startYM=latestRealYM();
+  var v=(S.snap[startYM]!==undefined)?S.snap[startYM]:S.balance;
+  var i=0,zero=null;
+  while(i<240){
+    i++;var ym=ymAdd(startYM,i);
+    v-=S.fixed;
+    if(ym<=S.benefitEnd)v+=S.benefit;
+    if(isRentMonth(ym))v-=S.rent;
+    (oo[ym]||[]).forEach(function(o){v+=o.a;});
+    if(v<S.floor){zero=ym;break;}
+  }
+  return {months:zero?i:240,zeroYM:zero};
+}
 function planAt(ym){
   var pts=planSeries(),d=ymDiff(S.anchorYM,ym);
   if(d<0||d>=pts.length)return null;
@@ -283,6 +353,7 @@ function render(){
 
   renderPlanTable();drawPlanChart();
   renderActTable();drawActChart();
+  renderBoard3();
   renderChecks();renderEntries();fillSettings();
 }
 
@@ -395,6 +466,52 @@ function drawActChart(){
   document.getElementById("actChart").innerHTML=html;
 }
 
+function renderBoard3(){
+  var dyn=dynSeries(), pf=dynToFloor();
+  document.getElementById("b3end").textContent=S.benefitEnd.replace("-","年")+"月";
+  document.getElementById("b3months").textContent=(pf.zeroYM? pf.months : ">"+pf.months)+" 个月";
+  document.getElementById("b3date").textContent=pf.zeroYM? pf.zeroYM.replace("-","年")+"月" : "底线之上,长期安全";
+  document.getElementById("b3start").textContent=ymLabel(dyn.startYM)+" ¥"+fmt(dyn.startBal);
+  document.getElementById("b3now").textContent=fmt(dyn.startBal);
+  document.getElementById("b3floor2").textContent=fmt(S.floor);
+  var REF=18,pct=Math.max(4,Math.min(100,pf.months/REF*100));
+  var bar=document.getElementById("b3bar"),mEl=document.getElementById("b3months");
+  bar.style.width=pct+"%";
+  bar.style.background=pf.months<=4?"var(--danger)":(pf.months<=8?"var(--warn)":"var(--accent)");
+  mEl.style.color=pf.months<=4?"var(--danger)":(pf.months<=8?"var(--warn)":"var(--ink)");
+  var net1=S.benefit-S.fixed-Math.round(S.rent/3),net2=-S.fixed-Math.round(S.rent/3);
+  document.getElementById("b3net1").textContent=(net1>=0?"+":"−")+fmt(Math.abs(net1));
+  document.getElementById("b3net2").textContent="−"+fmt(Math.abs(net2));
+
+  // 月份表
+  var html='<div class="pt-row head"><span class="m">月份</span><span class="ev">事件</span><span class="bal" style="font-weight:400">动态剩余</span></div>';
+  dyn.pts.forEach(function(p){
+    html+='<div class="pt-row'+(p.ym===curYM()?" cur":"")+(p.first?" cur":"")+'">'+
+      '<span class="m">'+ymLabel(p.ym)+'</span>'+
+      '<span class="ev">'+p.ev+'</span>'+
+      '<span class="bal'+(p.v<S.floor?" floor":"")+'">¥'+fmt(p.v)+'</span></div>';
+    if(p.ym===S.floorYM)html+='<div class="pt-row floorrow"><span>⚠ 底线 10K（1万元备用金）</span></div>';
+  });
+  document.getElementById("dynTable").innerHTML=html;
+
+  // 折线图: 计划线(对照) + 动态线(完整), 共用同一时间轴(anchorYM..benefitEnd)
+  var plan=planSeries();
+  var f=chartFrame(plan.map(function(p){return p.v;}).concat(dyn.pts.map(function(p){return p.v;})));
+  var n=plan.length-1, X=function(i){return f.L+i*(f.W-f.L-f.R)/(n||1);};
+  var html=gridHtml(f)+floorVLine(f,X,plan);
+  // 计划线虚线
+  html+='<polyline points="'+plan.map(function(p,i){return X(i)+","+f.Y(p.v);}).join(" ")+'" fill="none" stroke="var(--plan)" stroke-width="1.8" stroke-dasharray="6 4" opacity=".8"/>';
+  plan.forEach(function(p,i){ if(i%2===0)html+='<text x="'+X(i)+'" y="'+(f.H-12)+'" font-size="8.5" fill="var(--muted)" text-anchor="middle" font-family="var(--mono)">'+ymLabel(p.ym)+'</text>'; });
+  // 动态线: 对齐到同一时间轴(用 anchorYM 偏移定位起点)
+  var off=ymDiff(S.anchorYM,dyn.startYM);
+  html+='<polyline points="'+dyn.pts.map(function(p,k){return X(off+k)+","+f.Y(p.v);}).join(" ")+'" fill="none" stroke="var(--accent)" stroke-width="2.4"/>';
+  dyn.pts.forEach(function(p,k){
+    html+='<circle cx="'+X(off+k)+'" cy="'+f.Y(p.v)+'" r="'+(k===0?4.5:3)+'" fill="var(--accent)"/>';
+    var up=(k%2===0);
+    html+='<text x="'+X(off+k)+'" y="'+(up?f.Y(p.v)-9:f.Y(p.v)+15)+'" font-size="8.5" fill="var(--accent)" text-anchor="middle" font-family="var(--mono)">'+fmtK(p.v)+'</text>';
+  });
+  document.getElementById("dynChart").innerHTML=html;
+}
 function hasEntry(kw){
   var cm=curYM();
   return S.entries.some(function(e){return e.d.slice(0,7)===cm&&(e.n||"").indexOf(kw)>=0;});
